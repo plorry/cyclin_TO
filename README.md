@@ -1,4 +1,5 @@
-tacticsEngine
-=============
 
-development version of HTML5 turn-based tactics game engine
+cyclin_TO
+=========
+
+WIP game: pseudo-3D bicycle racer
