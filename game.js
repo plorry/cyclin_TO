@@ -12,15 +12,22 @@ var gamejs = require('gramework').gamejs,
 
 var roadSpec = {
     turns: {
-        24: {
+        10: {
+            angle: 45,
+            end: 20
+        },
+        25: {
+            angle: -45,
+            end: 35
+        },
+        40: {
             angle: 45,
             end: 50
         },
-
-        50: {
+        55: {
             angle: -45,
-            end: 75
-        }
+            end: 65
+        },
     },
 
     crossStreets: {

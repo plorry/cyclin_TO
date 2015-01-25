@@ -1,28 +1,47 @@
 var gamejs = require('gramework').gamejs,
+    Entity = require('gramework').Entity,
     _ = require('underscore'),
     conf = require('./conf');
 
-var Building = exports.Building = function(options) {
-    this.init(options);
-};
-
 ANGLE_SCALE_CONSTANT = 100;
 
-Building.prototype = {
+var Building = exports.Building = Entity.extend({
     init: function(options) {
         this.height = options.height;
         this.width = options.width;
         this.color = options.color;
         this.distance = options.distance;
         this.currentDistance = 0;
+        this.road = options.road;
+        this.diffDistance = this.distance - this.road.currentDistance;
+        this.scaleFactor;
     },
 
-    drawAt: function(bottom, viewDistance) {
-        var bottom = bottom;
+    update: function(dt) {
+        this.diffDistance = this.distance - this.road.currentDistance;
 
-        this.rect = new gamejs.Rect()
+        this.scaleFactor = 1 / (this.diffDistance);
+        this.buildingAngleOffset = thisLine.angleOffset * this.scaleFactor;
+        var buildingWidth = building.width * this.scaleFactor;
+        var buildingHeight = building.height * this.scaleFactor;
+        var buildingCenter = building.position || 0;
+        if (building.side == 'left') {
+
+        }
+        var buildingRect = new gamejs.Rect(
+            [(this.displayWidth/2) + (0 - this.center + buildingCenter) * buildingScale - buildingAngleOffset, height - buildingHeight],
+            [buildingWidth, buildingHeight]
+            );
+    },
+
+    draw: function(display, offset) {
+        if (building.image) {
+            display.blit(building.image, buildingRect);
+        } else {
+            gamejs.draw.rect(display, "rgb(200,0,0)", buildingRect);
+        }
     }
-};
+});
 
 var Road = exports.Road = function(options) {
     this.init(options);
@@ -78,13 +97,26 @@ Road.prototype = {
             }
         }
 
-        var scanlines = _.range(0,201);
+        var scanlines = _.range(0,201),
+            line;
+        this.lines = [];
 
         scanlines.forEach(function(lineNo) {
             this.lineProperties[lineNo] = {
                 diffDistance: 100 / (201 - lineNo)
             };
+
+            line = new Line({
+                road: this,
+                lineNo: lineNo
+            });
+
+            this.lines.push(line);
+            this.toDraw[line.diffDistance] = [line];
         }, this);
+
+        console.log(this.toDraw);
+
     },
 
     setDistance: function(distance) {
@@ -122,6 +154,10 @@ Road.prototype = {
         return angle * 0.017;
     },
 
+    getAngleOffsetAt: function(distance) {
+
+    },
+
     getDeltaAngle: function() {
         return this.lineProperties[1].angle - this.lineProperties[0].angle || 0;
     },
@@ -135,7 +171,8 @@ Road.prototype = {
     },
 
     isCrossStreet: function(distance) {
-        var crossStreets = this.currentRoad.crossStreets;
+        var crossStreets = this.currentRoad.crossStreets,
+            street;
         for (street in crossStreets) {
             if (distance >= street && distance <= crossStreets[street].end) {
                 return true;
@@ -148,7 +185,8 @@ Road.prototype = {
     },
 
     isBikeLane: function(distance) {
-        var bikeLanes = this.currentRoad.bikeLanes;
+        var bikeLanes = this.currentRoad.bikeLanes,
+            lane;
         for (lane in bikeLanes) {
             if (distance >= lane && distance <= bikeLanes[lane].end) {
                 return true;
@@ -161,7 +199,8 @@ Road.prototype = {
     },
 
     isSidewalk: function(distance) {
-        var sidewalks = this.currentRoad.sidewalks;
+        var sidewalks = this.currentRoad.sidewalks,
+            sidewalk;
         for (sidewalk in sidewalks) {
             if (distance >= sidewalk && distance <= sidewalks[sidewalk].end) {
                 return true;
@@ -239,9 +278,10 @@ Road.prototype = {
         this.currentAngle = this.getAngleAt(this.currentDistance);
         this.viewProperties = this.getRoadPropertiesAt(this.currentDistance);
         this.collectProperties();
+        for (i in this.toDraw) {
+
+        }
     },
-
-
 
     drawLine: function(display, lineNo) {
         var thisLine = this.lineProperties[lineNo];
@@ -303,7 +343,7 @@ Road.prototype = {
             gamejs.draw.line(display, "#aaa", [(this.displayWidth/2)-(width/10)-offset-width-(width/10)-(50/diffDistance),height + 1], [(this.displayWidth/2)+(width/10)-offset-width+(width/10)-(50/diffDistance),height + 1],2);
             gamejs.draw.line(display, "#aaa", [(this.displayWidth/2)-(width/10)-offset+width-(50/diffDistance),height + 1], [(this.displayWidth/2)+(width/10)-offset+width+(width/10)+(50/diffDistance),height + 1],2);
         }
-        /*
+        
         buildings.forEach(function(building){
             var buildingScale = 1 / (building.distance - this.viewProperties.distance);
             var buildingAngleOffset = thisLine.angleOffset * buildingScale;
@@ -324,7 +364,6 @@ Road.prototype = {
                 gamejs.draw.rect(display, "rgb(200,0,0)", buildingRect);
             }
         }, this);
-        */
     },
 
     draw: function(display) {
@@ -333,18 +372,133 @@ Road.prototype = {
             this.displayWidth = display.getSize()[0];
             this.displayHeight = display.getSize()[1];
         }
-        var scanlines = _.range(200,0,-1);
-
+        var scanlines = _.range(200,0,-1),
+            distanceVal, i,
+            distanceVals = [];
+        /*
         scanlines.forEach(function(line) {
             this.drawLine(display, line);
         }, this);
-
-        for (index in this.toDraw) {
-            this.toDraw[index].draw(display);
+        
+        */
+        for (distanceVal in this.toDraw) {
+            distanceVals.push(distanceVal);
         }
+
+        distanceVals.sort(function(a, b) {
+            return a - b;
+        });
+
+        for (i = distanceVals.length - 1; i > 0; i--) {
+            distanceVal = distanceVals[i];
+            this.toDraw[distanceVal].forEach(function(item) {
+                item.draw(display);
+            });
+        }
+
     }
 
 
+};
+
+var Line = function(options) {
+    this.init(options);
+};
+
+Line.prototype = {
+    init: function(options) {
+        this.road = options.road;
+        this.lineNo = options.lineNo;
+        this.diffDistance = 100 / (201 - this.lineNo);
+        this.absDistance = this.diffDistance + this.road.currentDistance;
+        this.dz = this.road.currentDistance + (100 / (200 - this.lineNo));
+        this.toDraw = [];
+    },
+
+    clearToDraw: function() {
+        this.toDraw = [];
+    },
+
+    collectToDraw: function() {
+        for (distance in this.road.currentBuildings) {
+            if (distance > this.absDistance && distance <= this.dz) {
+                this.toDraw.push
+            }
+        }
+    },
+
+    update: function(dt) {
+        this.absDistance = this.diffDistance + this.road.currentDistance;
+    },
+
+    draw: function(display) {
+        var thisLine = this.road.lineProperties[this.lineNo];
+
+        var diffDistance = thisLine.diffDistance;
+        var distance = thisLine.distance;
+
+        var nextDistance = this.road.lineProperties[this.lineNo - 1].distance;
+
+        var buildings = [];
+        var scaleFactor = 1 / diffDistance;
+
+        var altitude = thisLine.altitude;
+        var angle = thisLine.angle;
+
+        var diffAlt = altitude - this.road.viewProperties.altitude;
+
+        var height = 300 - this.lineNo + Math.floor(diffAlt / diffDistance);
+        var width = thisLine.width * 30 / diffDistance;
+
+        var offset = (this.road.center + thisLine.angleOffset) / diffDistance;
+        // Check buildings
+        
+        for (i in this.drawBuildings) {
+            if (i >= nextDistance && i <= distance) {
+                if (Array.isArray(this.drawBuildings[i])) {
+                    this.drawBuildings[i].forEach(function(building){
+                        buildings.push(building);
+                    });
+                } else {
+                    buildings.push(this.drawBuildings[i]);
+                }
+            }
+            if (i > distance) {
+                break;
+            }
+        }
+        //Now we draw
+        var stripe = Math.floor(Math.cos(distance * 3));
+        // Draw the grass
+        var grassRect = new gamejs.Rect([0,height], [this.road.displayWidth,300])
+        gamejs.draw.rect(display, "rgb(0,200,0)", grassRect);
+        // Draw the road
+        gamejs.draw.line(display, "rgb(50,50,50)", [(this.road.displayWidth/2)-width-offset,height+0.5], [(this.road.displayWidth/2)+width-offset,height+0.5],1);
+        //gamejs.draw.rect(display, "rgb(50,50,50)", new gamejs.Rect(
+        //    [(this.road.displayWidth/2)-(width)-offset,height], [2*width,this.road.displayHeight]));
+
+        if (stripe) {
+            gamejs.draw.line(display, "#fff", [(this.road.displayWidth/2)-(width/50)-offset,height+0.5], [(this.road.displayWidth/2)+(width/50)-offset,height+0.5],1);
+        }
+
+        if (this.road.isBikeLane(distance)) {
+            gamejs.draw.line(display, "#fff", [(this.road.displayWidth/2)-(width/50)-offset-width+(100/diffDistance),height+0.5], [(this.road.displayWidth/2)+(width/50)-offset-width+(100/diffDistance),height+0.5],1);
+            gamejs.draw.line(display, "#fff", [(this.road.displayWidth/2)-(width/50)-offset+width-(100/diffDistance),height+0.5], [(this.road.displayWidth/2)+(width/50)-offset+width-(100/diffDistance),height+0.5],1);
+        }
+
+        if (this.road.isSidewalk(distance)) {
+            gamejs.draw.line(display, "#aaa", [(this.road.displayWidth/2)-(width/10)-offset-width-(width/10)-(50/diffDistance),height + 0.5], [(this.road.displayWidth/2)+(width/10)-offset-width+(width/10)-(50/diffDistance),height + 0.5],1);
+            gamejs.draw.line(display, "#aaa", [(this.road.displayWidth/2)-(width/10)-offset+width-(50/diffDistance),height + 0.5], [(this.road.displayWidth/2)+(width/10)-offset+width+(width/10)+(50/diffDistance),height + 0.5],1);
+        }
+
+        if (this.road.isCrossStreet(distance)) {
+            gamejs.draw.line(display, "rgb(50,50,50)", [0,height+0.5],[this.road.displayWidth, height+0.5],1);
+        }
+
+        this.toDraw.forEach(function(item) {
+            item.draw(display, offset);
+        }, this);
+    }
 };
 
 var Car = exports.Car = _.extend(Building, {

@@ -57,9 +57,7 @@ var RoadScene = exports.RoadScene = Scene.extend({
 
     draw: function(display, options) {
         this.view.clear();
-        display.clear();
-        var rect = new gamejs.Rect([0,0,240,320])
-        //gamejs.draw.rect(this.view, "#fff", rect);
+        display.clear();        
         this.view.blit(this.image);
         this.road.draw(this.view);
         RoadScene.super_.prototype.draw.call(this, display, options);
