@@ -57,35 +57,27 @@ var roadSpec = {
     },
 
     buildings: {
+
     }
 };
 
 var Game = exports.Game = function () {
-    _.range(0,500).forEach(function(value){
-        roadSpec.buildings[value/3] = {
-            distance: value /3,
+    var road = new Road({
+        roadSpec: roadSpec
+    });
+    _.range(0,20).forEach(function(value){
+        road.addBuilding(value, {
+            road: road,
+            distance: value,
             height: 200,
             width: 200,
             position: 475,
             side: 'right',
             imageFile: 'hHouse01'
-        };
-    });
-    _.range(0,50).forEach(function(value){
-        roadSpec.buildings[value / 2 + 0.5] = [{
-            distance: value / 2 + 0.5,
-            height: 200,
-            width: 163,
-            position: 320,
-            side: 'left',
-            imageFile: 'tree01'
-        }];
+        });
     });
 
     this.cont = new GameController();
-    var road = new Road({
-        roadSpec: roadSpec
-    });
     var bike = new Biker({
         x:120,
         y:150,

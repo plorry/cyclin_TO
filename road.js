@@ -6,7 +6,8 @@ var gamejs = require('gramework').gamejs,
 ANGLE_SCALE_CONSTANT = 100;
 
 var Building = exports.Building = Entity.extend({
-    init: function(options) {
+    initialize: function(options) {
+        this.type = 'building';
         this.height = options.height;
         this.width = options.width;
         this.color = options.color;
@@ -15,30 +16,31 @@ var Building = exports.Building = Entity.extend({
         this.road = options.road;
         this.diffDistance = this.distance - this.road.currentDistance;
         this.scaleFactor;
+        this.image = this.road.images[options.image];
     },
 
     update: function(dt) {
+    },
+
+    draw: function(display, offset, height) {
         this.diffDistance = this.distance - this.road.currentDistance;
 
         this.scaleFactor = 1 / (this.diffDistance);
         this.buildingAngleOffset = thisLine.angleOffset * this.scaleFactor;
-        var buildingWidth = building.width * this.scaleFactor;
-        var buildingHeight = building.height * this.scaleFactor;
-        var buildingCenter = building.position || 0;
-        if (building.side == 'left') {
+        var buildingWidth = this.width * this.scaleFactor;
+        var buildingHeight = this.height * this.scaleFactor;
+        var buildingCenter = this.position || 0;
+        if (this.side == 'left') {
 
         }
-        var buildingRect = new gamejs.Rect(
-            [(this.displayWidth/2) + (0 - this.center + buildingCenter) * buildingScale - buildingAngleOffset, height - buildingHeight],
+        this.rect = new gamejs.Rect(
+            [(this.road.displayWidth/2) + (0 - this.road.center + buildingCenter) * this.scaleFactor - this.buildingAngleOffset, height - buildingHeight],
             [buildingWidth, buildingHeight]
-            );
-    },
-
-    draw: function(display, offset) {
-        if (building.image) {
-            display.blit(building.image, buildingRect);
+        );
+        if (this.image) {
+            display.blit(this.image, this.rect);
         } else {
-            gamejs.draw.rect(display, "rgb(200,0,0)", buildingRect);
+            gamejs.draw.rect(display, "rgb(200,0,0)", this.rect);
         }
     }
 });
@@ -59,26 +61,21 @@ Road.prototype = {
         this.lineProperties = [];
         this.viewProperties = this.getRoadPropertiesAt(this.currentDistance);
         this.toDraw = {};
-        var buildings = this.currentRoad.buildings;
+        this.buildings = [];
         var imageKeys = [];
         this.images = {};
-        for (building in buildings) {
-            if (Array.isArray(buildings[building])) {
-                buildings[building].forEach(function(thing){
-                    if (imageKeys.indexOf(thing.imageFile) < 0) {
-                        imageKeys.push(thing.imageFile);
-                    }
-                }, this);
-            } else if (buildings[building].imageFile) {
-                if (imageKeys.indexOf(buildings[building].imageFile) < 0) {
-                    imageKeys.push(buildings[building].imageFile);
+        for (building in this.currentRoad.buildings) {
+            buildings[building].forEach(function(thing){
+                if (imageKeys.indexOf(thing.imageFile) < 0) {
+                    imageKeys.push(thing.imageFile);
                 }
-            }
+            }, this);
         }
         imageKeys.forEach(function(key){
             this.images[key] = gamejs.image.load(conf.Images[key]);
         }, this);
 
+        /*
         for (building in buildings) {
             if (Array.isArray(buildings[building])) {
                 buildings[building].forEach(function(thing){
@@ -96,6 +93,7 @@ Road.prototype = {
                 }
             }
         }
+        */
 
         var scanlines = _.range(0,201),
             line;
@@ -114,9 +112,20 @@ Road.prototype = {
             this.lines.push(line);
             this.toDraw[line.diffDistance] = [line];
         }, this);
+    },
 
-        console.log(this.toDraw);
+    addBuilding: function(distance, options) {
+        if (!options.image in this.images){
+            // Image not yet stored, must load
+            this.images[options.image] = gamejs.image.load(conf.Images[options.image]);
+        }
 
+        var building = new Building(options);
+        if (this.buildings[distance]) {
+            this.buildings[distance].push(building);
+        } else {
+            this.buildings[distance] = [building];
+        }
     },
 
     setDistance: function(distance) {
@@ -225,12 +234,12 @@ Road.prototype = {
 
     collectBuildings: function(distance) {
         currentBuildings = {};
-        for (i in this.currentRoad.buildings) {
+        for (i in this.buildings) {
             if (i < distance) {
 
             }
             if (i >= distance && i <= distance + 100) {
-                currentBuildings[i] = this.currentRoad.buildings[i];
+                currentBuildings[i] = this.buildings[i];
             } 
             if (i > this.currentDistance + 100) {
                 break;
@@ -422,7 +431,6 @@ Line.prototype = {
     collectToDraw: function() {
         for (distance in this.road.currentBuildings) {
             if (distance > this.absDistance && distance <= this.dz) {
-                this.toDraw.push
             }
         }
     },
@@ -453,15 +461,11 @@ Line.prototype = {
         var offset = (this.road.center + thisLine.angleOffset) / diffDistance;
         // Check buildings
         
-        for (i in this.drawBuildings) {
+        for (i in this.road.drawBuildings) {
             if (i >= nextDistance && i <= distance) {
-                if (Array.isArray(this.drawBuildings[i])) {
-                    this.drawBuildings[i].forEach(function(building){
-                        buildings.push(building);
-                    });
-                } else {
-                    buildings.push(this.drawBuildings[i]);
-                }
+                this.road.drawBuildings[i].forEach(function(building){
+                    this.toDraw.push(building);
+                }, this);
             }
             if (i > distance) {
                 break;
@@ -496,8 +500,10 @@ Line.prototype = {
         }
 
         this.toDraw.forEach(function(item) {
-            item.draw(display, offset);
+            item.draw(display, offset, height);
         }, this);
+
+        this.clearToDraw();
     }
 };
 
